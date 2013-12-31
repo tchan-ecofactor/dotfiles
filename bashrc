@@ -4,8 +4,8 @@
 alias srcsh="source ~/.bashrc"
 
 # ls
-alias ll="ls -lFG"
-alias la="ls -aFG"
+alias ll="ls -lFGh"
+alias la="ls -aFGh"
 
 # grep
 alias grep="egrep --color=auto"
@@ -44,7 +44,8 @@ alias gdiff="git diff -w"
 alias gignored="git ls-files -o -i --exclude-standard"
 
 # less
-export LESS="-iR"
+export PAGER=less
+export LESS="--status-column --long-prompt --no-init --quit-if-one-screen --quit-at-eof -iR"
 
 # java
 export JAVA_HOME=$(/usr/libexec/java_home)
