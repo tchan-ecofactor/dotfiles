@@ -42,6 +42,28 @@ alias gpulls="git stash; git pull; git stash pop"
 alias gpush="git push origin master"
 alias gdiff="git diff -w"
 alias gignored="git ls-files -o -i --exclude-standard"
+function grb() {
+  git fetch origin $1
+  if [ $? -eq 0 ]; then
+    git checkout -B $1 origin/$1
+  fi
+}
+function gpushb() {
+  git push origin `git rev-parse --abbrev-ref HEAD`
+}
+function gb() {
+  local searchstr=${1}
+  if [ "$searchstr" == "" ] ; then
+  	searchstr=master
+  fi
+  local newbranch=`git rev-parse --abbrev-ref --branches=${searchstr}*`
+  if [ "$newbranch" == "" ] ; then
+  	echo Cannot find branch ${searchstr}
+    git checkout master
+  else
+    git checkout $newbranch
+  fi
+}
 
 # less
 export PAGER=less
