@@ -39,7 +39,6 @@ alias gca="git commit --amend -m"
 alias gm="git merge --no-ff"
 alias gpull="git pull"
 alias gpulls="git stash; git pull; git stash pop"
-alias gpush="git push origin master"
 alias gdiff="git diff -w"
 alias gignored="git ls-files -o -i --exclude-standard"
 function grb() {
@@ -48,8 +47,9 @@ function grb() {
     git checkout -B $1 origin/$1
   fi
 }
-function gpushb() {
-  git push origin `git rev-parse --abbrev-ref HEAD`
+function gpush() {
+  local gitbranch=`git rev-parse --abbrev-ref HEAD`
+  git push origin $gitbranch
 }
 function gb() {
   local searchstr=${1}
