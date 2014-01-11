@@ -25,38 +25,59 @@ function my() {
 }
 
 # git
+# Shortcut to show git status
+alias gs="git status"
+# Shortcut to show git status as well as what is in the git stash stack
 function gss() {
   git status
   echo ' '
   echo '# git stash list'
   git --no-pager stash list
 }
-alias gs="git status"
+# Shortcut to show git log with pretty format
 alias gl="git log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cd) %C(bold blue)<%an>%Creset' --abbrev-commit --date=local"
-alias ga="git add -v --all"
+# Shortcut to do git add with -A option to also add those removals to staging index
+alias ga="git add -v -A"
+# Shortcut to do git commit with message
 alias gc="git commit -m"
+# Shortcut to do ammended git commit with message
 alias gca="git commit --amend -m"
+# Shortcut to do non-fast-forward git merge
 alias gm="git merge --no-ff"
+# Shortcut to do git pull
 alias gpull="git pull"
-alias gpulls="git stash; git pull; git stash pop"
+# Shortcut to first stash working copy changes and do git pull and then pop and merge the stashed changes
+function gpulls() {
+  git stash
+  git pull
+  git stash pop
+}
+# Shortcut to do git push to correct remote branch
+function gpush() {
+  local gitbranch=`git rev-parse --abbrev-ref HEAD`
+  git push origin $gitbranch
+}
+# Shortcut to do git diff and ignore whitespace differences
 alias gdiff="git diff -w"
+# Shortcut to show list of git-ignored files in working directory
 alias gignored="git ls-files -o -i --exclude-standard"
+# Shortcut to create new local branch to follow remote branch
 function grb() {
   git fetch origin $1
   if [ $? -eq 0 ]; then
     git checkout -B $1 origin/$1
   fi
 }
-function gpush() {
-  local gitbranch=`git rev-parse --abbrev-ref HEAD`
-  git push origin $gitbranch
-}
+# Shortcut to switch current local branch based on search string
 function gb() {
   local searchstr=${1}
   if [ "$searchstr" == "" ] ; then
   	searchstr=master
   fi
-  local newbranch=`git rev-parse --abbrev-ref --branches=${searchstr}*`
+  local newbranch=`git rev-parse --abbrev-ref --branches=${searchstr}* | head -1`
+  if [ "$newbranch" == "" ] ; then
+    newbranch=`git rev-parse --abbrev-ref --branches=*${searchstr}* | head -1`
+  fi
   if [ "$newbranch" == "" ] ; then
   	echo Cannot find branch ${searchstr}
     git checkout master
@@ -79,7 +100,9 @@ export NODE_PATH=/usr/local/lib/node_modules
 alias vdiff="/Applications/DiffMerge.app/Contents/MacOS/DiffMerge -nosplash"
 
 # development-specific shortcuts
-source ~/dev/dev_bashrc.sh
+if [ -f ~/dev/dev_bashrc.sh ]; then
+  source ~/dev/dev_bashrc.sh
+fi
 
 # ulimit
 #ulimit -n 4096
