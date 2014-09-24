@@ -3,6 +3,12 @@
 # source
 alias srcsh="source ~/.bashrc"
 
+# clear
+function clr() {
+  clear
+  clear
+}
+
 # ls
 alias ll="ls -lFGh"
 alias la="ls -aFGh"
@@ -42,13 +48,45 @@ function my() {
 }
 
 # svn
-function svnlog7() {
-  local logtarget=${1}
-  if [ "$logtarget" == "" ] ; then
-    logtarget=.
+# Shortcut to show svn status
+function svs() {
+  local svntarget=${1}
+  if [ "$svntarget" == "" ] ; then
+    svntarget=.
+  fi
+  svn status ${svntarget} | less
+}
+# Shortcut to do svn update
+function svu() {
+  local svntarget=${1}
+  if [ "$svntarget" == "" ] ; then
+    svntarget=.
+  fi
+  svn update ${svntarget}
+}
+# Shortcut to do svn add
+alias sva="svn add"
+# Shortcut to do svn commit
+alias svc="svn commit -m"
+# Shortcut to do svn revert recursively
+alias svrr="svn revert -R"
+# Shortcut to show svn log from the last 7 days
+function svl7() {
+  local svntarget=${1}
+  if [ "$svntarget" == "" ] ; then
+    svntarget=.
   fi
   local sevendaysago=`date -v-7d "+%Y-%m-%d"`
-  svn log -v -r HEAD:{$sevendaysago} ${logtarget} | less
+  svn log -v -r HEAD:{$sevendaysago} ${svntarget} | less
+}
+# Shortcut to show svn log from the last 14 days
+function svl14() {
+  local svntarget=${1}
+  if [ "$svntarget" == "" ] ; then
+    svntarget=.
+  fi
+  local fourteendaysago=`date -v-14d "+%Y-%m-%d"`
+  svn log -v -r HEAD:{$fourteendaysago} ${svntarget} | less
 }
 
 # git
@@ -85,12 +123,27 @@ function gpush() {
   local gitbranch=`git rev-parse --abbrev-ref HEAD`
   git push origin $gitbranch
 }
+# Shortcut to do set remote branch as upstream
+function gbtrack() {
+  local gitbranch=`git rev-parse --abbrev-ref HEAD`
+  git branch --set-upstream-to=origin/$gitbranch $gitbranch
+}
 # Shortcut to do git diff and ignore whitespace differences
 alias gdiff="git diff -w"
+# Shortcut to do git diff on a specific commit against the previous commit
+function gdiffc() {
+  local gitcommit=$1
+  git diff -w ${gitcommit}^1..${gitcommit}
+}
+# Shortcut to do git visual diff on a specific commit against the previous commit
+function gvdiffc() {
+  local gitcommit=$1
+  git difftool -d --no-symlinks -x "/Applications/DiffMerge.app/Contents/MacOS/DiffMerge" ${gitcommit}^1..${gitcommit} 2> >(grep -v CoreText 1>&2)
+}
 # Shortcut to show list of git-ignored files in working directory
 alias gignored="git ls-files -o -i --exclude-standard"
 # Shortcut to show remote branch details
-alias grso="git remote show origin"
+alias grso="git remote show origin | grep -v 'stale '"
 # Shortcut to create new local branch to follow remote branch
 function grb() {
   git fetch origin $1
@@ -142,23 +195,24 @@ function gbc() {
     echo Cannot compare ${gitbranch} branch to itself
   else
     echo Compare ${gitbranch}..${newbranch}
-    git difftool -d -x "/Applications/DiffMerge.app/Contents/MacOS/DiffMerge" ${gitbranch}..${newbranch}
-    #git difftool -d -x "/Applications/PyCharm.app/Contents/MacOS/pycharm diff" ${gitbranch}..${newbranch}
-    #git difftool -d -x "/usr/local/bin/ksdiff" ${gitbranch}..${newbranch}
+    git difftool -d --no-symlinks -x "/Applications/DiffMerge.app/Contents/MacOS/DiffMerge" ${gitbranch}..${newbranch} 2> >(grep -v CoreText 1>&2)
+    #git difftool -d --no-symlinks -x "/Applications/PyCharm.app/Contents/MacOS/pycharm diff" ${gitbranch}..${newbranch}
+    #git difftool -d --no-symlinks -x "/usr/local/bin/ksdiff" ${gitbranch}..${newbranch}
   fi
 }
 function gvdiff() {
-  git difftool -d -x "/Applications/DiffMerge.app/Contents/MacOS/DiffMerge" $*
+  git difftool -d --no-symlinks -x "/Applications/DiffMerge.app/Contents/MacOS/DiffMerge" $* 2> >(grep -v CoreText 1>&2)
 }
 
 # git flow
 # Shortcut to start new feature branch from current local branch using git flow
-function gffst() {
+function gffnew() {
   local featurebranchname=${1}
+  echo Start feature ${featurebranchname}
   git flow feature start ${featurebranchname}
 }
 # Shortcut to finish feature branch using git flow
-function gffsh() {
+function gffend() {
   local searchstr=${1}
   if [ "$searchstr" == "" ] ; then
     searchstr=`git rev-parse --abbrev-ref HEAD`
@@ -166,13 +220,30 @@ function gffsh() {
       searchstr=${searchstr:8}
     fi
   fi
-  foundbranch=`git rev-parse --abbrev-ref --branches=feature/*${searchstr}* | head -1`
+  local foundbranch=`git rev-parse --abbrev-ref --branches=feature/*${searchstr}* | head -1`
   if [ "$foundbranch" == "" ] ; then
     echo Cannot find feature matching "*"${searchstr}"*"
   else
     echo Finish feature ${foundbranch:8}
     git flow feature finish ${foundbranch:8}
   fi
+}
+# Shortcut to publish a feature
+function gffpub() {
+  local searchstr=${1}
+  local foundbranch=`git rev-parse --abbrev-ref --branches=feature/*${searchstr}* | head -1`
+  if [ "$foundbranch" == "" ] ; then
+    echo Cannot find feature matching "*"${searchstr}"*"
+  else
+    echo Publish feature ${foundbranch:8}
+    git flow feature publish ${foundbranch:8}
+  fi
+}
+# Shortcut to pull a feature
+function gffget() {
+  local featurebranchname=${1}
+  echo Pull and track feature ${featurebranchname}
+  git flow feature track ${featurebranchname}
 }
 
 # less
@@ -188,6 +259,11 @@ function rmpyc() {
   find . -name "*.pyc" -exec rm -rf {} \;
 }
 
+# javascript
+function jsc() {
+  /System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Resources/jsc $*
+}
+
 # node.js
 export NODE_PATH=/usr/local/lib/node_modules
 function npmlsg() {
@@ -198,7 +274,29 @@ function npmls() {
 }
 
 # diffmerge
-alias vdiff="/Applications/DiffMerge.app/Contents/MacOS/DiffMerge -nosplash"
+function vdiff() {
+  /Applications/DiffMerge.app/Contents/MacOS/DiffMerge -nosplash $* 2> >(grep -v CoreText 1>&2)
+}
+
+# docker
+# shortcut to delete all containers
+function dkclean() {
+  sudo docker ps -a -q | xargs -n 1 -I {} sudo docker rm {}
+}
+# shortcut to delete all un-tagged (or intermediate) images
+function dkpurge() {
+  sudo docker rmi $( sudo docker images | grep '&lt;none&gt;' | tr -s ' ' | cut -d ' ' -f 3)
+}
+
+# logstash
+function gologstash {
+  logstash agent -e 'input { log4j {port => 6678} } output { stdout {} }'
+}
+
+# vagrant
+function vst {
+  vagrant global-status
+}
 
 # development-specific shortcuts
 if [ -f ~/dev/dev_bashrc.sh ]; then
