@@ -28,6 +28,10 @@ function fpw() {
   find . -name "*${1}*" -print
 }
 
+# less
+export PAGER=less
+export LESS="--status-column --long-prompt --no-init --quit-if-one-screen --quit-at-eof -iR"
+
 # osx
 # recursively remove all .DS_Store files
 function rmds() {
@@ -70,23 +74,23 @@ alias sva="svn add"
 alias svc="svn commit -m"
 # Shortcut to do svn revert recursively
 alias svrr="svn revert -R"
+# Shortcut to show svn log from the last N days
+function svln() {
+  local svnlogdays=${1}
+  local svntarget=${2}
+  if [ "$svntarget" == "" ] ; then
+    svntarget=.
+  fi
+  local ndaysago=`date -v-${svnlogdays}d "+%Y-%m-%d"`
+  svn log -v -r HEAD:{$ndaysago} ${svntarget} | less
+}
 # Shortcut to show svn log from the last 7 days
 function svl7() {
-  local svntarget=${1}
-  if [ "$svntarget" == "" ] ; then
-    svntarget=.
-  fi
-  local sevendaysago=`date -v-7d "+%Y-%m-%d"`
-  svn log -v -r HEAD:{$sevendaysago} ${svntarget} | less
+  svln 7 ${1}
 }
-# Shortcut to show svn log from the last 14 days
-function svl14() {
-  local svntarget=${1}
-  if [ "$svntarget" == "" ] ; then
-    svntarget=.
-  fi
-  local fourteendaysago=`date -v-14d "+%Y-%m-%d"`
-  svn log -v -r HEAD:{$fourteendaysago} ${svntarget} | less
+# svn diff using DiffMerge
+function svdiff() {
+  svn diff --diff-cmd "/Users/tchan/dev/bin/svndiffmerge.sh" -x "-nosplash" $*
 }
 
 # git
@@ -246,9 +250,25 @@ function gffget() {
   git flow feature track ${featurebranchname}
 }
 
-# less
-export PAGER=less
-export LESS="--status-column --long-prompt --no-init --quit-if-one-screen --quit-at-eof -iR"
+# xcode
+function xcuse() {
+  sudo xcode-select -s /Applications/Xcode${1}.app
+}
+function xcrun() {
+  pushd /Applications/Xcode${1}.app/Contents/MacOS
+  /Applications/Xcode${1}.app/Contents/MacOS/Xcode &
+  popd
+}
+
+# android sdk
+export ANDROID_HOME=~/Developer/Library/Android
+export PATH=${PATH}:${ANDROID_HOME}/tools:${ANDROID_HOME}/platform-tools
+function avdnew() {
+  android create avd --force --name avd001 --target android-19
+}
+function avdclean() {
+  rm -rf ~/.android/avd/*
+}
 
 # java 1.6
 export JAVA_HOME=$(/usr/libexec/java_home -v 1.6)
@@ -296,6 +316,11 @@ function gologstash {
 # vagrant
 function vst {
   vagrant global-status
+}
+
+# autoprefixer
+function autoprefix {
+  autoprefixer --no-cascade -b "> 5%, last 5 Chrome versions, IE >= 10, Firefox >= 24, ios >= 6, Android >= 4.0" $*
 }
 
 # development-specific shortcuts
