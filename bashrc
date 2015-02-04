@@ -32,6 +32,20 @@ function fpw() {
 export PAGER=less
 export LESS="--status-column --long-prompt --no-init --quit-if-one-screen --quit-at-eof -iR"
 
+# date
+function utcnow {
+  date +%s
+}
+function utcnm {
+  date -v+${1}M +%s
+}
+function utcnd {
+  date -v+${1}d +%s
+}
+function utcoffset {
+  date +%z
+}
+
 # osx
 # recursively remove all .DS_Store files
 function rmds() {
@@ -39,10 +53,11 @@ function rmds() {
 }
 
 # mysql
-export PATH=/usr/local/mysql/bin:$PATH
-#alias mysql=/usr/local/mysql/bin/mysql
-#alias mysqladmin=/usr/local/mysql/bin/mysqladmin
-#export DYLD_LIBRARY_PATH=/usr/local/mysql/lib/:$DYLD_LIBRARY_PATH
+export MYSQL_HOME=/usr/local/mysql
+export PATH=${MYSQL_HOME}/bin:$PATH
+#alias mysql=${MYSQL_HOME}/bin/mysql
+#alias mysqladmin=${MYSQL_HOME}/bin/mysqladmin
+#export DYLD_LIBRARY_PATH=${MYSQL_HOME}/lib/:$DYLD_LIBRARY_PATH
 function my() {
   if [ "$1" == "" ] ; then
     mysql -u root
@@ -249,6 +264,10 @@ function gffget() {
   echo Pull and track feature ${featurebranchname}
   git flow feature track ${featurebranchname}
 }
+# Shortcut to search a git commit based on a search string
+function gcfind() {
+  git show --name-only --oneline :/"$@"
+}
 
 # xcode
 function xcuse() {
@@ -270,8 +289,10 @@ function avdclean() {
   rm -rf ~/.android/avd/*
 }
 
-# java 1.6
-export JAVA_HOME=$(/usr/libexec/java_home -v 1.6)
+# java
+# export JAVA_VERSION=1.6
+export JAVA_VERSION=1.7
+export JAVA_HOME=$(/usr/libexec/java_home -v ${JAVA_VERSION})
 
 # python
 # recursively remove all *.pyc files
@@ -316,6 +337,12 @@ function gologstash {
 # vagrant
 function vst {
   vagrant global-status
+}
+
+# VirtualBox
+# List running virtualboxes
+function vbst {
+  VBoxManage list runningvms
 }
 
 # autoprefixer
