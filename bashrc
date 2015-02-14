@@ -1,7 +1,12 @@
 #!/bin/sh
 
 # source
-alias srcsh="source ~/.bashrc"
+alias srcs="source ~/.bashrc"
+
+# development-specific bash environments
+if [ -f ~/dev/dev_bashrc_env.sh ]; then
+  source ~/dev/dev_bashrc_env.sh
+fi
 
 # clear
 function clr() {
@@ -22,28 +27,134 @@ function cgrep() {
 
 # find
 function fp() {
-  find . -name ${1} -print
+  find . -name ${1} -print 2> /dev/null
 }
 function fpw() {
-  find . -name "*${1}*" -print
+  find . -name "*${1}*" -print 2> /dev/null
 }
 
 # less
 export PAGER=less
 export LESS="--status-column --long-prompt --no-init --quit-if-one-screen --quit-at-eof -iR"
 
+# Terminal
+function _closewin() {
+  local winTitle=$1
+  osascript -e "tell app \"Terminal\"" \
+  -e "  repeat with win in windows" \
+  -e "    if (name of win as string) contains \"${winTitle}\" then" \
+  -e "      tell win to close" \
+  -e "      exit repeat" \
+  -e "    end if" \
+  -e "  end repeat" \
+  -e "end tell"
+#  osascript -e "tell app \"iTerm\"" \
+#  -e "  activate" \
+#  -e "  repeat with mytab in every tab" \
+#  -e "    if (name of mytab) contains \"${winTitle}\" then" \
+#  -e "      tell mytab to close" \
+#  -e "      exit repeat" \
+#  -e "    end if" \
+#  -e "  end repeat" \
+#  -e "end tell"
+}
+function _openwin() {
+  local winTitle=$1
+  local numRows=$2
+  local numCols=$3
+  local bgColor=$4
+  local scriptCmd=$5
+  if [ "$numRows" == "" ]; then
+    numRows=50
+  fi
+  if [ "$numCols" == "" ]; then
+    numCols=100
+  fi
+  if [ "$bgColor" == "" ]; then
+    bgColor="{65535,65535,65535,0}"
+  fi
+  osascript -e "tell app \"Terminal\"" \
+  -e "  set found to \"false\"" \
+  -e "  set win_titles to name of every window" \
+  -e "  repeat with win_title in win_titles" \
+  -e "    if (win_title as string) contains \"${winTitle}\" then" \
+  -e "      set found to \"true\"" \
+  -e "      exit repeat" \
+  -e "    end if" \
+  -e "  end repeat" \
+  -e "  if found = \"false\" then" \
+  -e "    do script \"${scriptCmd}\"" \
+  -e "    set background color of first window to ${bgColor}" \
+  -e "    set font size of first window to 10" \
+  -e "    set number of rows of first window to ${numRows}" \
+  -e "    set number of columns of first window to ${numCols}" \
+  -e "    set custom title of first window to \"${winTitle}\"" \
+  -e "  end if" \
+  -e "end tell"
+}
+function _opentab() {
+  local scriptCmd=$1
+  osascript -e "tell application \"Terminal\"" \
+  -e "activate" \
+  -e "tell application \"System Events\" to keystroke \"t\" using command down" \
+  -e "repeat while contents of selected tab of window 1 starts with linefeed" \
+  -e "    delay 0.01" \
+  -e "end repeat" \
+  -e "do script \"${scriptCmd}\" in window 1" \
+  -e "end tell"
+}
+
 # date
+function utce {
+  local input=${1}
+  if [ "${input}" == "" ] ; then
+    input=0
+  fi
+  local result_utc=`date -u -r ${input}`
+  local result=`date -r ${input}`
+  echo ""
+  echo "From: ${input}"
+  echo "  UTC: ${result_utc}"
+  echo "  Current TZ: ${result}"
+  echo ""
+}
 function utcnow {
-  date +%s
+  local result=`date +%s`
+  echo ""
+  echo "Time: Now"
+  echo "  Seconds: ${result}"
+  echo "  Milliseconds: ${result}000"
+  echo ""
 }
 function utcnm {
-  date -v+${1}M +%s
+  local input=${1}
+  if [ "${input}" == "" ] ; then
+    input=1
+  fi
+  local result=`date -v+${input}M +%s`
+  echo ""
+  echo "Time: ${input} Minutes from Now"
+  echo "  Seconds: ${result}"
+  echo "  Milliseconds: ${result}000"
+  echo ""
 }
 function utcnd {
-  date -v+${1}d +%s
+  local input=${1}
+  if [ "${input}" == "" ] ; then
+    input=1
+  fi
+  local result=`date -v+${input}d +%s`
+  echo ""
+  echo "Time: ${input} Days from Now"
+  echo "  Seconds: ${result}"
+  echo "  Milliseconds: ${result}000"
+  echo ""
 }
 function utcoffset {
-  date +%z
+  local result=`date +%z`
+  echo ""
+  echo "UTC Offset: ${result}"
+  echo ""
 }
 
 # osx
@@ -52,8 +163,13 @@ function rmds() {
   find . -name ".DS_Store" -exec rm -rf {} \;
 }
 
+# maven
+export MAVEN_OPTS="-Xmx512m -XX:MaxPermSize=256m"
+
 # mysql
-export MYSQL_HOME=/usr/local/mysql
+if [ "$MYSQL_HOME" == "" ]; then
+  export MYSQL_HOME=/usr/local/mysql
+fi
 export PATH=${MYSQL_HOME}/bin:$PATH
 #alias mysql=${MYSQL_HOME}/bin/mysql
 #alias mysqladmin=${MYSQL_HOME}/bin/mysqladmin
@@ -64,6 +180,9 @@ function my() {
   else
     mysql -u root -D $1
   fi
+}
+function mycfg() {
+  subl ${MYSQL_HOME}/my.cnf
 }
 
 # svn
@@ -133,19 +252,21 @@ alias gm="git merge --no-ff"
 alias gpull="git pull"
 # Shortcut to first stash working copy changes and do git pull and then pop and merge the stashed changes
 function gpulls() {
+  git stash clear
   git stash
   git pull
   git stash pop
+  git stash clear
 }
 # Shortcut to do git push to correct remote branch
 function gpush() {
   local gitbranch=`git rev-parse --abbrev-ref HEAD`
-  git push origin $gitbranch
+  git push origin $gitbranch $*
 }
 # Shortcut to do set remote branch as upstream
 function gbtrack() {
   local gitbranch=`git rev-parse --abbrev-ref HEAD`
-  git branch --set-upstream-to=origin/$gitbranch $gitbranch
+  git branch --set-upstream-to=origin/$gitbranch $gitbranch $*
 }
 # Shortcut to do git diff and ignore whitespace differences
 alias gdiff="git diff -w"
@@ -192,6 +313,7 @@ function gbnb() {
   local newbranchname=${1}
   git checkout -b ${newbranchname}
   git push -u origin ${newbranchname}
+  git branch --set-upstream-to=origin/$gitbranch ${newbranchname}
 }
 # Shortcut to list all local branches
 alias gbv="git branch -v"
@@ -335,8 +457,32 @@ function gologstash {
 }
 
 # vagrant
-function vst {
+function vst() {
   vagrant global-status
+}
+function vnew() {
+  local vhome=$1
+  if [ "$vhome" == "" ]; then
+    vhome=~/dev/vagrant
+  fi
+  _opentab "cd ${vhome} && vagrant up"
+}
+function vkill() {
+  local vhome=$1
+  if [ "$vhome" == "" ]; then
+    vhome=~/dev/vagrant
+  fi
+  pushd . >/dev/null
+  cd ${vhome}
+  vagrant destroy -f
+  popd >/dev/null
+}
+function vssh() {
+  local vhome=$1
+  if [ "$vhome" == "" ]; then
+    vhome=~/dev/vagrant
+  fi
+  _opentab "cd ${vhome} && vagrant ssh"
 }
 
 # VirtualBox
@@ -345,12 +491,71 @@ function vbst {
   VBoxManage list runningvms
 }
 
+# Nginx
+if [ "$NGINX_HOME" == "" ]; then
+  export NGINX_HOME=/usr/local/opt/nginx
+fi
+function ntl() {
+  pushd . >/dev/null
+  _openwin "Nginx Server" "50" "100" "{57344, 65535, 57344, 0}" "tail -f ${NGINX_HOME}/logs/*.log"
+  popd >/dev/null
+}
+function ncl() {
+  if ls ${NGINX_HOME}/logs/*.log &> /dev/null; then
+    rm -f ${NGINX_HOME}/logs/*.log
+    echo Nginx logs cleaned
+  else
+    echo Nginx logs already cleaned
+  fi
+}
+function nsh() {
+  if [ -f /usr/local/var/run/nginx.pid ]; then
+    sudo ${NGINX_HOME}/bin/nginx -s stop
+    echo Nginx stopped
+  else
+    echo Nginx already stopped
+  fi
+  _closewin "Nginx Server"
+}
+function nst() {
+  sudo ${NGINX_HOME}/bin/nginx
+  echo Nginx started
+  ntl
+}
+function ncfg() {
+  subl ${NGINX_HOME}/nginx.conf
+}
+
+# ssh
+if [ "$MY_SSH_RSA" == "" ]; then
+  export MY_SSH_RSA=~/.ssh/`whoami`.rsa
+fi
+if [ "$MY_SSH_USER" == "" ]; then
+  export MY_SSH_USER=root
+fi
+if [ "$MY_SSH_PORT" == "" ]; then
+  export MY_SSH_PORT=19122
+fi
+function rssh() {
+  local sshhost=$1
+  local sshuser=$2
+  if [ "$sshuser" == "" ]; then
+    sshuser=$MY_SSH_USER
+  fi
+  _opentab "ssh -p ${MY_SSH_PORT} -i ${MY_SSH_RSA} ${sshuser}@${sshhost}${MY_DOMAIN}"
+}
+
 # autoprefixer
 function autoprefix {
   autoprefixer --no-cascade -b "> 5%, last 5 Chrome versions, IE >= 10, Firefox >= 24, ios >= 6, Android >= 4.0" $*
 }
 
-# development-specific shortcuts
+# browsers
+function _openchrome {
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" $* 2>&1 &
+}
+
+# other development-specific bash setup
 if [ -f ~/dev/dev_bashrc.sh ]; then
   source ~/dev/dev_bashrc.sh
 fi
