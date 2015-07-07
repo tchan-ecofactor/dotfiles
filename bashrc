@@ -31,6 +31,9 @@ alias rgrep="egrep -r -n -I --color=auto"
 function cgrep() {
   egrep -r -n -I --color=auto -c $* | grep -v ":0$"
 }
+function wgrep() {
+  _openwin "grep watch" "19" "77" "{65535, 65535, 32767, 0}" "watch -n1 'grep $*'"
+}
 
 # find
 function fp() {
@@ -43,6 +46,9 @@ function fpw() {
 # less
 export PAGER=less
 export LESS="--status-column --long-prompt --no-init --quit-if-one-screen --quit-at-eof -iR"
+
+# tr
+alias trnl="tr '\n' ' '"
 
 # Terminal
 function _closewin() {
@@ -111,14 +117,23 @@ function _opentab() {
   -e "end tell"
 }
 
+# ntp
+function ntpsync {
+  sudo ntpupdate -u time.apple.com
+}
+
 # date
 function utce {
   local input=${1}
   if [ "${input}" == "" ] ; then
     input=0
   fi
-  local result_utc=`date -u -r ${input}`
-  local result=`date -r ${input}`
+  local val=${input}
+  if [ "${val}" -gt 9999999999 ]; then
+    val=`expr ${val} / 1000`
+  fi
+  local result_utc=`date -u -r ${val}`
+  local result=`date -r ${val}`
   echo ""
   echo "From: ${input}"
   echo "  UTC: ${result_utc}"
@@ -126,9 +141,11 @@ function utce {
   echo ""
 }
 function utcnow {
+  local result_utc=`date -u`
   local result=`date +%s`
   echo ""
   echo "Time: Now"
+  echo "  UTC: ${result_utc}"
   echo "  Seconds: ${result}"
   echo "  Milliseconds: ${result}000"
   echo ""
@@ -194,6 +211,19 @@ function my() {
     mysql -u root -D $1
   fi
 }
+function myclone() {
+  local dbto=$1
+  echo "drop database if exists ${dbto};" | mysql -u root
+  echo "create database ${dbto};" | mysql -u root
+  while [ ! "${2}" == "" ]; do
+    local dbfrom=$2
+    rm -f /tmp/${dbfrom}_schema.sql
+    mysqldump -u root --no-data ${dbfrom} > /tmp/${dbfrom}_schema.sql
+    mysql -u root -D ${dbto} < /tmp/${dbfrom}_schema.sql
+    rm -f /tmp/${dbfrom}_schema.sql
+    shift
+  done
+}
 function mycfg() {
   subl ${MYSQL_HOME}/my.cnf
 }
@@ -242,7 +272,7 @@ function svl7() {
 }
 # svn diff using DiffMerge
 function svdiff() {
-  svn diff --diff-cmd "/Users/tchan/dev/bin/svndiffmerge.sh" -x "-nosplash" $*
+  svn diff --diff-cmd "/Users/tchan/dev/bin/svndiffmerge.sh" $*
 }
 
 # git
@@ -291,12 +321,14 @@ alias gdiff="git diff -w"
 # Shortcut to do git diff on a specific commit against the previous commit
 function gdiffc() {
   local gitcommit=$1
-  git diff -w ${gitcommit}^1..${gitcommit}
+  shift
+  git diff -w ${gitcommit}^1..${gitcommit} $*
 }
 # Shortcut to do git visual diff on a specific commit against the previous commit
 function gvdiffc() {
   local gitcommit=$1
-  git difftool -d --no-symlinks -x "/Applications/DiffMerge.app/Contents/MacOS/DiffMerge" ${gitcommit}^1..${gitcommit} 2> >(grep -v CoreText 1>&2)
+  # git difftool -d --no-symlinks -x "/Applications/DiffMerge.app/Contents/MacOS/DiffMerge" ${gitcommit}^1..${gitcommit} 2> >(grep -v CoreText 1>&2)
+  git difftool -d --no-symlinks -x "/usr/local/bin/bcomp" ${gitcommit}^1..${gitcommit}
 }
 # Shortcut to show list of git-ignored files in working directory
 alias gignored="git ls-files -o -i --exclude-standard"
@@ -327,7 +359,7 @@ function gb() {
   fi
 }
 # Shortcut to create new local branch from current local branch, and then push it as a new remote branch
-function gbnb() {
+function gbnew() {
   local newbranchname=${1}
   git checkout -b ${newbranchname}
   git push -u origin ${newbranchname}
@@ -354,13 +386,15 @@ function gbc() {
     echo Cannot compare ${gitbranch} branch to itself
   else
     echo Compare ${gitbranch}..${newbranch}
-    git difftool -d --no-symlinks -x "/Applications/DiffMerge.app/Contents/MacOS/DiffMerge" ${gitbranch}..${newbranch} 2> >(grep -v CoreText 1>&2)
+    #git difftool -d --no-symlinks -x "/Applications/DiffMerge.app/Contents/MacOS/DiffMerge" ${gitbranch}..${newbranch} 2> >(grep -v CoreText 1>&2)
     #git difftool -d --no-symlinks -x "/Applications/PyCharm.app/Contents/MacOS/pycharm diff" ${gitbranch}..${newbranch}
     #git difftool -d --no-symlinks -x "/usr/local/bin/ksdiff" ${gitbranch}..${newbranch}
+    git difftool -d --no-symlinks -x "/usr/local/bin/bcomp" ${gitbranch}..${newbranch}
   fi
 }
 function gvdiff() {
-  git difftool -d --no-symlinks -x "/Applications/DiffMerge.app/Contents/MacOS/DiffMerge" $* 2> >(grep -v CoreText 1>&2)
+  # git difftool -d --no-symlinks -x "/Applications/DiffMerge.app/Contents/MacOS/DiffMerge" $* 2> >(grep -v CoreText 1>&2)
+  git difftool -d --no-symlinks -x "/usr/local/bin/bcomp" $*
 }
 
 # git flow
@@ -409,6 +443,13 @@ function gcfind() {
   git show --name-only --oneline :/"$@"
 }
 
+# bash-git-prompt
+if [ -f "$(brew --prefix bash-git-prompt)/share/gitprompt.sh" ]; then
+  GIT_PROMPT_THEME=Default
+  GIT_PROMPT_ONLY_IN_REPO=1
+  source "$(brew --prefix bash-git-prompt)/share/gitprompt.sh"
+fi
+
 # xcode
 function xcuse() {
   sudo xcode-select -s /Applications/Xcode${1}.app
@@ -439,6 +480,33 @@ export JAVA_HOME=$(/usr/libexec/java_home -v ${JAVA_VERSION})
 function rmpyc() {
   find . -name "*.pyc" -exec rm -rf {} \;
 }
+function pipsuper() {
+  local packagename=$1
+  local packagever=$2
+  local installname=${packagename}
+  if [ "$packagever" != "" ]; then
+    installname=${packagename}==${packagever}
+  fi
+  pip install --allow-external=${packagename} ${installname}
+}
+
+# virtualenv
+if [ "$MY_VENV_ROOT" == "" ]; then
+  export MY_VENV_ROOT=~/dev/virtualenvs
+fi
+function veon() {
+  local venv=$1
+  if [ "$venv" == "" ]; then
+    if [ "$MY_DEFAULT_VENV" == "" ]; then
+      echo Cannot determine virtual env to use
+    fi
+    venv=${MY_DEFAULT_VENV}
+  fi
+  source ${MY_VENV_ROOT}/${venv}/bin/activate
+}
+function veoff() {
+  deactivate
+}
 
 # javascript
 function jsc() {
@@ -454,20 +522,40 @@ function npmls() {
   npm ls --depth=0 2>/dev/null
 }
 
-# diffmerge
+# visual diff
 function vdiff() {
-  /Applications/DiffMerge.app/Contents/MacOS/DiffMerge -nosplash $* 2> >(grep -v CoreText 1>&2)
+  # diffmerge
+  # /Applications/DiffMerge.app/Contents/MacOS/DiffMerge -nosplash $* 2> >(grep -v CoreText 1>&2)
+  # beyond compare
+  /usr/local/bin/bcomp $* &
 }
 
 # docker
-# shortcut to delete all containers
-function dkclean() {
-  sudo docker ps -a -q | xargs -n 1 -I {} sudo docker rm {}
-}
-# shortcut to delete all un-tagged (or intermediate) images
-function dkpurge() {
-  sudo docker rmi $( sudo docker images | grep '&lt;none&gt;' | tr -s ' ' | cut -d ' ' -f 3)
-}
+if [ "`which boot2docker`" != "" ]; then
+  $(boot2docker shellinit 2> /dev/null)
+
+  # shortcut to start boot2docker
+  function b2dst() {
+    boot2docker up
+    $(boot2docker shellinit 2> /dev/null)
+  }
+  # shortcut to shutdown boot2docker
+  function b2dsh() {
+    boot2docker down
+  }
+  # shortcut to delete all dangling images
+  function dkrmi0() {
+    docker rmi $(docker images -f "dangling=true" -q)
+  }
+  # shortcut to delete all exited containers
+  function dkrm0() {
+    docker rm -v $(docker ps -a -q -f status=exited)
+  }
+  # shortcut to delete all containers
+  function dkclean() {
+    sudo docker ps -a -q | xargs -n 1 -I {} sudo docker rm {}
+  }
+fi
 
 # logstash
 function gologstash {
@@ -513,9 +601,12 @@ function vbst {
 if [ "$NGINX_HOME" == "" ]; then
   export NGINX_HOME=/usr/local/opt/nginx
 fi
+if [ "$NGINX_CONF_HOME" == "" ]; then
+  export NGINX_CONF_HOME=/usr/local/etc/nginx
+fi
 function ntl() {
   pushd . >/dev/null
-  _openwin "Nginx Server" "50" "100" "{57344, 65535, 57344, 0}" "tail -f ${NGINX_HOME}/logs/*.log"
+  _openwin "Nginx Server" "19" "77" "{57344, 65535, 57344, 0}" "tail -f ${NGINX_HOME}/logs/*.log"
   popd >/dev/null
 }
 function ncl() {
@@ -541,7 +632,7 @@ function nst() {
   ntl
 }
 function ncfg() {
-  subl ${NGINX_HOME}/nginx.conf
+  subl ${NGINX_CONF_HOME}/nginx.conf
 }
 
 # ssh
@@ -561,6 +652,14 @@ function rssh() {
     sshuser=$MY_SSH_USER
   fi
   _opentab "ssh -p ${MY_SSH_PORT} -i ${MY_SSH_RSA} ${sshuser}@${sshhost}${MY_DOMAIN}"
+}
+# Example: rscp pjb1 /home/efdev/ecoapps/jboss-5.1.0.GA/server/all/log/gc.log ./gc.pjb1.log
+function rscp() {
+  local sshhost=$1
+  local sshuser=$MY_SSH_USER
+  local remotefilepath=$2
+  local localfilepath=$3
+  scp -P ${MY_SSH_PORT} -i ${MY_SSH_RSA} ${sshuser}@${sshhost}${MY_DOMAIN}:${remotefilepath} ${localfilepath}
 }
 
 # autoprefixer
