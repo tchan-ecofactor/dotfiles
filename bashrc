@@ -1,5 +1,12 @@
 #!/bin/sh
 
+if [ -f /etc/bashrc ]; then
+  . /etc/bashrc
+fi
+
+# prompt
+export PROMPT_COMMAND='echo -ne "\033]0;${USER} ${PWD/#$HOME/~}\007"'
+
 # source
 alias srcs="source ~/.bashrc"
 
@@ -158,6 +165,7 @@ function utcoffset {
 }
 
 # osx
+export PATH=/usr/local/bin:/usr/local/sbin:$PATH
 # recursively remove all .DS_Store files
 function rmds() {
   find . -name ".DS_Store" -exec rm -rf {} \;
@@ -174,6 +182,11 @@ export PATH=${MYSQL_HOME}/bin:$PATH
 #alias mysql=${MYSQL_HOME}/bin/mysql
 #alias mysqladmin=${MYSQL_HOME}/bin/mysqladmin
 #export DYLD_LIBRARY_PATH=${MYSQL_HOME}/lib/:$DYLD_LIBRARY_PATH
+function mystart() {
+  pushd ${MYSQL_HOME}
+  sudo ./bin/mysqld_safe &
+  popd
+}
 function my() {
   if [ "$1" == "" ] ; then
     mysql -u root
@@ -183,6 +196,11 @@ function my() {
 }
 function mycfg() {
   subl ${MYSQL_HOME}/my.cnf
+}
+
+# sqllite
+function sl() {
+  sqlite3 -header -column $1
 }
 
 # svn
