@@ -96,12 +96,11 @@ function _openwin() {
   -e "    end if" \
   -e "  end repeat" \
   -e "  if found = \"false\" then" \
-  -e "    do script \"${scriptCmd}\"" \
+  -e "    do script \"osascript -e 'tell app \\\"Terminal\\\" to set custom title of window 1 to \\\"${winTitle}\\\"'; ${scriptCmd}\"" \
   -e "    set background color of first window to ${bgColor}" \
   -e "    set font size of first window to 10" \
   -e "    set number of rows of first window to ${numRows}" \
   -e "    set number of columns of first window to ${numCols}" \
-  -e "    set custom title of first window to \"${winTitle}\"" \
   -e "  end if" \
   -e "end tell"
 }
