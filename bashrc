@@ -142,36 +142,48 @@ function utce {
 function utcnow {
   local result_utc=`date -u`
   local result=`date +%s`
+  local result_local=`date`
   echo ""
   echo "Time: Now"
+  echo "  Local: ${result_local}"
+  echo "  UTC: ${result_utc}"
+  echo "  Seconds: ${result}"
+  echo "  Milliseconds: ${result}000"
+  echo ""
+}
+function _utcmath {
+  local unit=${1}
+  local unitname=${2}
+  local offset=${3}
+
+  if [ "${offset}" == "" ] ; then
+    offset=+1
+  elif [[ "${offset}" =~ ^-.* ]] ; then
+    offset=${offset}
+  elif [[ "${offset}" =~ ^\+.* ]] ; then
+    offset=${offset}
+  else
+    offset=+${offset}
+  fi
+  local result=`date -v${offset}${unit} +%s`
+  local result_utc=`date -v${offset}${unit} -u`
+  local result_local=`date -v${offset}${unit}`
+  echo ""
+  echo "Time: ${offset} ${unitname} from Now"
+  echo "  Local: ${result_local}"
   echo "  UTC: ${result_utc}"
   echo "  Seconds: ${result}"
   echo "  Milliseconds: ${result}000"
   echo ""
 }
 function utcnm {
-  local input=${1}
-  if [ "${input}" == "" ] ; then
-    input=1
-  fi
-  local result=`date -v+${input}M +%s`
-  echo ""
-  echo "Time: ${input} Minutes from Now"
-  echo "  Seconds: ${result}"
-  echo "  Milliseconds: ${result}000"
-  echo ""
+  _utcmath M Minutes ${1}
+}
+function utcnh {
+  _utcmath H Hours ${1}
 }
 function utcnd {
-  local input=${1}
-  if [ "${input}" == "" ] ; then
-    input=1
-  fi
-  local result=`date -v+${input}d +%s`
-  echo ""
-  echo "Time: ${input} Days from Now"
-  echo "  Seconds: ${result}"
-  echo "  Milliseconds: ${result}000"
-  echo ""
+  _utcmath M Minutes ${1}
 }
 function utcoffset {
   local result=`date +%z`
@@ -188,7 +200,7 @@ function rmds() {
 }
 
 # maven
-export MAVEN_OPTS="-Xmx512m -XX:MaxPermSize=256m"
+export MAVEN_OPTS="-client -Dorg.slf4j.simpleLogger.showDateTime=true -Dorg.slf4j.simpleLogger.dateTimeFormat=HH:mm:ss -Xmx512m -XX:MaxPermSize=256m"
 
 # mysql
 if [ "$MYSQL_HOME" == "" ]; then
