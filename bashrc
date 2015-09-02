@@ -34,6 +34,59 @@ function cgrep() {
 function wgrep() {
   _openwin "grep watch" "19" "77" "{65535, 65535, 32767, 0}" "watch -n1 'grep $*'"
 }
+# Source repository greps
+function sgrep() {
+  local sgrep_opts="${@: 1:`expr $# - 1`}"
+  local sgrep_dev_opts=${MY_DEV_GREP_OPTS}
+  local sgrep_pattern="${@: -1}"
+  egrep -r -n -I --color=auto --exclude={.classpath,.project,*.pyc,*.class} --exclude-dir={.git,.idea,.svn,.settings,target,test-output,node_modules} ${sgrep_opts} ${sgrep_dev_opts} "${sgrep_pattern}" .
+}
+# Python greps
+function pygrep() {
+  sgrep --include=*.py "$@"
+}
+function pytgrep() {
+  sgrep --include=*_tests.py "$@"
+}
+# Javascript greps
+function jsgrep() {
+  sgrep --include=*.js "$@"
+}
+function jstgrep() {
+  sgrep --include=*_test.js "$@"
+}
+function jssgrep() {
+  sgrep --include=*.js --exclude=*_test.js "$@"
+}
+# HTML/CSS greps
+function cssgrep() {
+  sgrep --include=*.css "$@"
+}
+function htmgrep() {
+  sgrep --include=*.htm* "$@"
+}
+# Java greps
+function jgrep() {
+  sgrep --include=*.java --include=*.jsp "$@"
+}
+function jjgrep() {
+  sgrep --include=*.java --include=*.jsp --exclude=Test*.java --exclude=*Test.java "$@"
+}
+function jtgrep() {
+  sgrep --include=Test*.java --include=*Test.java "$@"
+}
+# Node.js greps
+function njgrep() {
+  sgrep --include=*.js "$@"
+}
+# XML greps
+function xmlgrep() {
+  sgrep --include=*.xml "$@"
+}
+# Maven greps
+function pomgrep() {
+  sgrep --include=*pom*.xml "$@"
+}
 
 # find
 function fp() {
@@ -542,30 +595,35 @@ function vdiff() {
 }
 
 # docker
-if [ "`which boot2docker`" != "" ]; then
-  $(boot2docker shellinit 2> /dev/null)
-
-  # shortcut to start boot2docker
-  function b2dst() {
-    boot2docker up
+export SKIP_DOCKER=true
+if [ "$SKIP_DOCKER" == "" ]; then
+  if [ "`which boot2docker`" != "" ]; then
+    pushd . > /dev/null
     $(boot2docker shellinit 2> /dev/null)
-  }
-  # shortcut to shutdown boot2docker
-  function b2dsh() {
-    boot2docker down
-  }
-  # shortcut to delete all dangling images
-  function dkrmi0() {
-    docker rmi $(docker images -f "dangling=true" -q)
-  }
-  # shortcut to delete all exited containers
-  function dkrm0() {
-    docker rm -v $(docker ps -a -q -f status=exited)
-  }
-  # shortcut to delete all containers
-  function dkclean() {
-    sudo docker ps -a -q | xargs -n 1 -I {} sudo docker rm {}
-  }
+    popd > /dev/null
+  
+    # shortcut to start boot2docker
+    function b2dst() {
+      boot2docker up
+      $(boot2docker shellinit 2> /dev/null)
+    }
+    # shortcut to shutdown boot2docker
+    function b2dsh() {
+      boot2docker down
+    }
+    # shortcut to delete all dangling images
+    function dkrmi0() {
+      docker rmi $(docker images -f "dangling=true" -q)
+    }
+    # shortcut to delete all exited containers
+    function dkrm0() {
+      docker rm -v $(docker ps -a -q -f status=exited)
+    }
+    # shortcut to delete all containers
+    function dkclean() {
+      sudo docker ps -a -q | xargs -n 1 -I {} sudo docker rm {}
+    }
+  fi
 fi
 
 # logstash
