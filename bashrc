@@ -41,6 +41,12 @@ function sgrep() {
   local sgrep_pattern="${@: -1}"
   egrep -r -n -I --color=auto --exclude={.classpath,.project,*.pyc,*.class} --exclude-dir={.git,.idea,.svn,.settings,target,test-output,node_modules} ${sgrep_opts} ${sgrep_dev_opts} "${sgrep_pattern}" .
 }
+function csgrep() {
+  local sgrep_opts="${@: 1:`expr $# - 1`}"
+  local sgrep_dev_opts=${MY_DEV_GREP_OPTS}
+  local sgrep_pattern="${@: -1}"
+  egrep -r -n -I --color=auto -c --exclude={.classpath,.project,*.pyc,*.class} --exclude-dir={.git,.idea,.svn,.settings,target,test-output,node_modules} ${sgrep_opts} ${sgrep_dev_opts} "${sgrep_pattern}" . | grep -v ":0$"
+}
 # Python greps
 function pygrep() {
   sgrep --include=*.py "$@"
@@ -352,6 +358,8 @@ function gss() {
 }
 # Shortcut to show git log with pretty format
 alias gl="git log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cd) %C(bold blue)<%an>%Creset' --abbrev-commit --date=local"
+# Shortcut to show git tags with pretty format
+alias glt="git log --tags --no-walk --pretty=format:'%C(yellow)%h%Creset %Cred%D%Creset %Cgreen(%cd) %C(bold blue)<%an>%Creset' --date=local"
 # Shortcut to do git add with -A option to also add those removals to staging index
 alias ga="git add -v -A"
 # Shortcut to do git commit with message
@@ -662,8 +670,20 @@ function vssh() {
 
 # VirtualBox
 # List running virtualboxes
-function vbst {
+function vbv {
   VBoxManage list runningvms
+}
+function vbst {
+  local vmname=$1
+  echo Starting VM "${vmname}" ...
+  VBoxManage startvm "${vmname}" --type headless
+  echo Ping VM "${vmname}" every 5 seconds ...
+  ping -i 5 -o `VBoxManage guestproperty get ${vmname} /VirtualBox/GuestInfo/Net/1/V4/IP | cut -f 2 -d ' '`
+}
+function vbsh {
+  local vmname=$1
+  echo Stopping VM "${vmname}" ...
+  VBoxManage controlvm "${vmname}" poweroff
 }
 
 # Nginx
@@ -704,6 +724,24 @@ function ncfg() {
   subl ${NGINX_CONF_HOME}/nginx.conf
 }
 
+# Redis
+function rsh() {
+  local pid=`ps a | grep redis-server | grep -v grep | sed 's/^ *//g' | cut -f 1 -d ' '`
+  if [ "$pid" == "" ]; then
+    echo Redis not running
+  else
+    kill $pid
+    echo Redis stopped
+  fi
+  _closewin "Redis Server"
+}
+function rst() {
+  _openwin "Redis Server" "19" "77" "{57344, 57344, 57344, 0}" "/usr/local/bin/redis-server /usr/local/etc/redis.conf"
+}
+function rflush() {
+  /usr/local/bin/redis-cli flushall
+}
+
 # ssh
 if [ "$MY_SSH_RSA" == "" ]; then
   export MY_SSH_RSA=~/.ssh/`whoami`.rsa
@@ -714,13 +752,30 @@ fi
 if [ "$MY_SSH_PORT" == "" ]; then
   export MY_SSH_PORT=19122
 fi
+function genrsa() {
+  pushd ~ > /dev/null
+  mkdir -p .ssh
+  cd .ssh
+  rm id_rsa
+  rm id_rsa.pub
+  ssh-keygen -t rsa -f ~/.ssh/id_rsa -C "${MY_EMAIL}"
+  ssh-add id_rsa
+  touch authorized_keys
+  cat id_rsa.pub > authorized_keys
+  chmod 600 authorized_keys id_rsa
+  popd >/dev/null
+}
 function rssh() {
   local sshhost=$1
   local sshuser=$2
+  local sshport=$3
   if [ "$sshuser" == "" ]; then
     sshuser=$MY_SSH_USER
   fi
-  _opentab "ssh -p ${MY_SSH_PORT} -i ${MY_SSH_RSA} ${sshuser}@${sshhost}${MY_DOMAIN}"
+  if [ "$sshport" == "" ]; then
+    sshport=$MY_SSH_PORT
+  fi
+  _opentab "ssh -p ${sshport} -i ${MY_SSH_RSA} ${sshuser}@${sshhost}${MY_DOMAIN}"
 }
 # Example: rscp pjb1 /home/efdev/ecoapps/jboss-5.1.0.GA/server/all/log/gc.log ./gc.pjb1.log
 function rscp() {
