@@ -21,6 +21,19 @@ function clr() {
   clear
 }
 
+# cd
+function _cd() {
+  local destdir=$1
+  local subdir=$2
+  if [ -d "${destdir}" ]; then
+    cd ${destdir}
+    if [ -d "${subdir}" ]; then
+      cd ${subdir}
+    fi
+  fi
+  echo Current Directory: `pwd`
+}
+
 # ls
 alias ll="ls -lFGh"
 alias la="ls -aFGh"
@@ -29,7 +42,7 @@ alias la="ls -aFGh"
 alias grep="egrep --color=auto"
 alias rgrep="egrep -r -n -I --color=auto"
 function cgrep() {
-  egrep -r -n -I --color=auto -c $* | grep -v ":0$"
+  egrep -r -n -I -c $* | grep -v ":0$"
 }
 function wgrep() {
   _openwin "grep watch" "19" "77" "{65535, 65535, 32767, 0}" "watch -n1 'grep $*'"
@@ -39,13 +52,13 @@ function sgrep() {
   local sgrep_opts="${@: 1:`expr $# - 1`}"
   local sgrep_dev_opts=${MY_DEV_GREP_OPTS}
   local sgrep_pattern="${@: -1}"
-  egrep -r -n -I --color=auto --exclude={.classpath,.project,*.pyc,*.class} --exclude-dir={.git,.idea,.svn,.settings,target,test-output,node_modules} ${sgrep_opts} ${sgrep_dev_opts} "${sgrep_pattern}" .
+  egrep -r -n -I --color=always --exclude={.classpath,.project,*.pyc,*.class} --exclude-dir={.git,.idea,.svn,.settings,target,test-output,node_modules} ${sgrep_opts} ${sgrep_dev_opts} "${sgrep_pattern}" . 2>&1 | egrep -v "Permission denied$"
 }
 function csgrep() {
   local sgrep_opts="${@: 1:`expr $# - 1`}"
   local sgrep_dev_opts=${MY_DEV_GREP_OPTS}
   local sgrep_pattern="${@: -1}"
-  egrep -r -n -I --color=auto -c --exclude={.classpath,.project,*.pyc,*.class} --exclude-dir={.git,.idea,.svn,.settings,target,test-output,node_modules} ${sgrep_opts} ${sgrep_dev_opts} "${sgrep_pattern}" . | grep -v ":0$"
+  egrep -r -n -I -c --exclude={.classpath,.project,*.pyc,*.class} --exclude-dir={.git,.idea,.svn,.settings,target,test-output,node_modules} ${sgrep_opts} ${sgrep_dev_opts} "${sgrep_pattern}" . 2>&1 | egrep -v "Permission denied$" | grep -v ":0$"
 }
 # Python greps
 function pygrep() {
@@ -164,14 +177,16 @@ function _openwin() {
   -e "end tell"
 }
 function _opentab() {
-  local scriptCmd=$1
+  local winTitle=$1
+  local scriptCmd=$2
   osascript -e "tell application \"Terminal\"" \
-  -e "activate" \
-  -e "tell application \"System Events\" to keystroke \"t\" using command down" \
-  -e "repeat while contents of selected tab of window 1 starts with linefeed" \
+  -e "  activate" \
+  -e "  tell application \"System Events\" to keystroke \"t\" using command down" \
+  -e "  repeat while contents of selected tab of window 1 starts with linefeed" \
   -e "    delay 0.01" \
-  -e "end repeat" \
-  -e "do script \"${scriptCmd}\" in window 1" \
+  -e "  end repeat" \
+  -e "  do script \"printf '\\\e]1;${winTitle}\\\a'; ${scriptCmd}\" in window 1" \
+  -e "  delay 0.01" \
   -e "end tell"
 }
 
@@ -259,7 +274,7 @@ function rmds() {
 }
 
 # maven
-export MAVEN_OPTS="-client -Dorg.slf4j.simpleLogger.showDateTime=true -Dorg.slf4j.simpleLogger.dateTimeFormat=HH:mm:ss -Xmx512m -XX:MaxPermSize=256m"
+export MAVEN_OPTS="-client -Duser.timezone=Etc/UTC -Dorg.slf4j.simpleLogger.showDateTime=true -Dorg.slf4j.simpleLogger.dateTimeFormat=HH:mm:ss -Xmx512m -XX:MaxPermSize=256m"
 
 # mysql
 if [ "$MYSQL_HOME" == "" ]; then
@@ -602,71 +617,179 @@ function vdiff() {
   /usr/local/bin/bcomp $* &
 }
 
-# docker
-export SKIP_DOCKER=true
-if [ "$SKIP_DOCKER" == "" ]; then
-  if [ "`which boot2docker`" != "" ]; then
-    pushd . > /dev/null
-    $(boot2docker shellinit 2> /dev/null)
-    popd > /dev/null
-  
-    # shortcut to start boot2docker
-    function b2dst() {
-      boot2docker up
-      $(boot2docker shellinit 2> /dev/null)
-    }
-    # shortcut to shutdown boot2docker
-    function b2dsh() {
-      boot2docker down
-    }
-    # shortcut to delete all dangling images
-    function dkrmi0() {
-      docker rmi $(docker images -f "dangling=true" -q)
-    }
-    # shortcut to delete all exited containers
-    function dkrm0() {
-      docker rm -v $(docker ps -a -q -f status=exited)
-    }
-    # shortcut to delete all containers
-    function dkclean() {
-      sudo docker ps -a -q | xargs -n 1 -I {} sudo docker rm {}
-    }
+# docker toolbox
+# shortcut to start docker toolbox vm if not running, and setup shell to use docker
+export DOCKER_MACHINE_OPTS=--native-ssh
+function dtrm() {
+  local dtmachine=${1:-default}
+  echo Removing Docker VM $(tput setaf 4)${dtmachine}$(tput sgr0) ...
+  docker-machine ${DOCKER_MACHINE_OPTS} rm $dtmachine
+  echo Removing Docker VM $(tput setaf 4)${dtmachine}$(tput sgr0)
+}
+function dtnew() {
+  local dtmachine=${1:-default}
+  echo Creating Docker VM $(tput setaf 4)${dtmachine}$(tput sgr0) ...
+  docker-machine ${DOCKER_MACHINE_OPTS} create -d virtualbox --virtualbox-memory 2048 --virtualbox-disk-size 204800 $dtmachine
+  echo Created Docker VM $(tput setaf 4)${dtmachine}$(tput sgr0)
+  dtgo
+}
+function dtgo() {
+  local dtmachine=${1:-default}
+  local dtstat=$(docker-machine ${DOCKER_MACHINE_OPTS} status $dtmachine)
+  if [ "$dtstat" != "Running" ]; then
+    echo Starting Docker VM $(tput setaf 4)${dtmachine}$(tput sgr0) ...
+    docker-machine ${DOCKER_MACHINE_OPTS} start $dtmachine
+    echo Started Docker VM $(tput setaf 4)${dtmachine}$(tput sgr0)
   fi
-fi
+  eval $(docker-machine ${DOCKER_MACHINE_OPTS} env $dtmachine --shell=bash)
+}
+# shortcut to stop docker toolbox vm
+function dtstop() {
+  local dtmachine=${1:-default}
+  local dtstat=$(docker-machine ${DOCKER_MACHINE_OPTS} status $dtmachine)
+  if [ "$dtstat" != "Stopped" ]; then
+    echo Stopping Docker VM $(tput setaf 4)${dtmachine}$(tput sgr0) ...
+    docker-machine ${DOCKER_MACHINE_OPTS} stop $dtmachine
+    echo Stopped Docker VM $(tput setaf 4)${dtmachine}$(tput sgr0)
+  fi
+}
+# shortcut to ssh into docker toolbox vm
+function dtssh() {
+  local dtmachine=${1:-default}
+  _opentab "${dtmachine}" "docker-machine ${DOCKER_MACHINE_OPTS} ssh $dtmachine"
+}
+# shortcut to show the ip address of a docker toolbox vm
+function dtip() {
+  local dtmachine=${1:-default}
+  echo IP address of Docker VM $(tput setaf 4)${dtmachine}$(tput sgr0) is:
+  docker-machine ${DOCKER_MACHINE_OPTS} ip ${dtmachine}
+}
+
+# docker
+# shortcut to show all containers
+function dkps() {
+  docker ps -a $*
+}
+# shortcut to show all images
+function dkim() {
+  docker images $*
+}
+# shortcut to show the ip address of a container
+function dkip() {
+  local dkcontainer=$1
+  if [ "$dkcontainer" == "" ]; then
+    dkcontainer=`docker ps -laq`
+  fi
+  local dkname=`docker inspect --format='{{ .Name }}' ${dkcontainer}`
+  echo IP address of docker container $(tput setaf 4)${dkname}$(tput sgr0) is:
+  docker inspect --format='{{ .NetworkSettings.IPAddress }}' ${dkcontainer}
+}
+# shortcut to show the exposed ports of a container
+function dkport() {
+  local dkcontainer=$1
+  if [ "${dkcontainer}" == "" ] || [ "${dkcontainer:0:1}" == "-" ]; then
+    dkcontainer=`docker ps -laq`
+  else
+    shift
+  fi
+  local dkname=`docker inspect --format='{{ .Name }}' ${dkcontainer}`
+  echo Ports of docker container $(tput setaf 4)${dkname}$(tput sgr0) include:
+  docker port ${dkcontainer} $*
+}
+# shortcut to show logs from a container
+function dkl() {
+  local dkcontainer=$1
+  if [ "${dkcontainer}" == "" ] || [ "${dkcontainer:0:1}" == "-" ]; then
+    dkcontainer=`docker ps -laq`
+  else
+    shift
+  fi
+  local dkname=`docker inspect --format='{{ .Name }}' ${dkcontainer}`
+  echo Logs from docker container $(tput setaf 4)${dkname}$(tput sgr0):
+  docker logs $* ${dkcontainer}
+}
+# shortcut to open an interactive shell in a container
+function dksh() {
+  local dkcontainer=$1
+  if [ "${dkcontainer}" == "" ] || [ "${dkcontainer:0:1}" == "-" ]; then
+    dkcontainer=`docker ps -laq`
+  else
+    shift
+  fi
+  local dkname=`docker inspect --format='{{ .Name }}' ${dkcontainer}`
+  echo Interactive shell into docker container $(tput setaf 4)${dkname}$(tput sgr0):
+  docker exec -t -i ${dkcontainer} /bin/bash
+}
+# shortcut to delete all dangling images
+function dkrmi0() {
+  local dkimages=$(docker images -f "dangling=true" -q)
+  if [ "$dkimages" != "" ]; then
+    docker rmi $* $dkimages
+  fi
+}
+# shortcut to delete all exited containers
+function dkrm0() {
+  local dkcontainers=$(docker ps -a -q -f status=exited)
+  if [ "$dkcontainers" != "" ]; then
+    docker rm -v $* $dkcontainers
+  fi
+}
+# shortcut to delete all containers
+function dkclean() {
+  docker ps -a -q | xargs -n 1 -I {} docker rm {}
+}
+function _dktags() {
+  local dkimage=$1
+  local dkurl=https://registry.hub.docker.com/v2/repositories/library/${dkimage}/tags/
+  while [ "$dkurl" != "" ] && [ "$dkurl" != "null" ]; do
+    >&2 echo "Querying $(tput setaf 4)$dkurl$(tput sgr0) ..."
+    curl -s -S $dkurl | jq -M '."results"[]["name"]'
+    dkurl=$(curl -s -S $dkurl | jq -j -M '."next"')
+  done
+}
+function dktags() {
+  local dkimage=$1
+  local jqinstalled=$(which jq)
+  if [ "$jqinstalled" == "" ]; then
+    echo Installing jq ...
+    brew install jq
+  fi
+  _dktags $dkimage | sort
+}
 
 # logstash
-function gologstash {
-  logstash agent -e 'input { log4j {port => 6678} } output { stdout {} }'
-}
+#function gologstash {
+#  logstash agent -e 'input { log4j {port => 6678} } output { stdout {} }'
+#}
 
 # vagrant
-function vst() {
-  vagrant global-status
-}
-function vnew() {
-  local vhome=$1
-  if [ "$vhome" == "" ]; then
-    vhome=~/dev/vagrant
-  fi
-  _opentab "cd ${vhome} && vagrant up"
-}
-function vkill() {
-  local vhome=$1
-  if [ "$vhome" == "" ]; then
-    vhome=~/dev/vagrant
-  fi
-  pushd . >/dev/null
-  cd ${vhome}
-  vagrant destroy -f
-  popd >/dev/null
-}
-function vssh() {
-  local vhome=$1
-  if [ "$vhome" == "" ]; then
-    vhome=~/dev/vagrant
-  fi
-  _opentab "cd ${vhome} && vagrant ssh"
-}
+#function vst() {
+#  vagrant global-status
+#}
+#function vnew() {
+#  local vhome=$1
+#  if [ "$vhome" == "" ]; then
+#    vhome=~/dev/vagrant
+#  fi
+#  _opentab "${vhome}" "cd ${vhome} && vagrant up"
+#}
+#function vkill() {
+#  local vhome=$1
+#  if [ "$vhome" == "" ]; then
+#    vhome=~/dev/vagrant
+#  fi
+#  pushd . >/dev/null
+#  cd ${vhome}
+#  vagrant destroy -f
+#  popd >/dev/null
+#}
+#function vssh() {
+#  local vhome=$1
+#  if [ "$vhome" == "" ]; then
+#    vhome=~/dev/vagrant
+#  fi
+#  _opentab "${vhome}" "cd ${vhome} && vagrant ssh"
+#}
 
 # VirtualBox
 # List running virtualboxes
@@ -769,13 +892,23 @@ function rssh() {
   local sshhost=$1
   local sshuser=$2
   local sshport=$3
+  local sshdomain=${MY_DOMAIN}
   if [ "$sshuser" == "" ]; then
     sshuser=$MY_SSH_USER
   fi
   if [ "$sshport" == "" ]; then
     sshport=$MY_SSH_PORT
   fi
-  _opentab "ssh -p ${sshport} -i ${MY_SSH_RSA} ${sshuser}@${sshhost}${MY_DOMAIN}"
+  local sshportopt="-p ${sshport}"
+  local certopt="-i ${MY_SSH_RSA}"
+  if [ "$sshhost" != "" ]; then
+    if [ "${sshhost/[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*}" == "" ]; then
+      sshdomain=
+      sshportopt=
+      certopt=
+    fi
+  fi
+  _opentab "${sshhost}" "ssh ${sshportopt} ${certopt} ${sshuser}@${sshhost}${sshdomain}"
 }
 # Example: rscp pjb1 /home/efdev/ecoapps/jboss-5.1.0.GA/server/all/log/gc.log ./gc.pjb1.log
 function rscp() {
@@ -795,6 +928,11 @@ function autoprefix {
 function _openchrome {
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" $* 2>&1 &
 }
+
+# Dev Path
+if [ -f /Users/tchan/repo/Platform/deployment/tools/bin/buildAll ]; then
+  export PATH=/Users/tchan/repo/Platform/deployment/tools/bin:$PATH
+fi
 
 # other development-specific bash setup
 if [ -f ~/dev/dev_bashrc.sh ]; then
