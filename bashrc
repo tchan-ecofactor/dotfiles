@@ -619,33 +619,64 @@ function vdiff() {
 
 # docker toolbox
 # shortcut to start docker toolbox vm if not running, and setup shell to use docker
-export DOCKER_MACHINE_OPTS=--native-ssh
+export DOCKER_MACHINE_OPTS=
+function _dtmachine() {
+  local dtmachine=${1}
+  if [ "$dtmachine" == "" ]; then
+    dtmachine=${DOCKER_MACHINE_NAME}
+  fi
+  if [ "$dtmachine" == "" ]; then
+    dtmachine=$(docker-machine ls -q | head -1)
+  fi
+  if [ "$dtmachine" == "" ]; then
+    dtmachine=default
+  fi
+  echo $dtmachine
+}
 function dtrm() {
-  local dtmachine=${1:-default}
+  local dtmachine=$(_dtmachine ${1})
   echo Removing Docker VM $(tput setaf 4)${dtmachine}$(tput sgr0) ...
   docker-machine ${DOCKER_MACHINE_OPTS} rm $dtmachine
   echo Removing Docker VM $(tput setaf 4)${dtmachine}$(tput sgr0)
 }
 function dtnew() {
-  local dtmachine=${1:-default}
+  local dtmachine=$(_dtmachine ${1})
+  local dtnewopts=
+  if [ "$1" != "" ]; then
+    shift
+    dtnewopts=$*
+  fi
   echo Creating Docker VM $(tput setaf 4)${dtmachine}$(tput sgr0) ...
-  docker-machine ${DOCKER_MACHINE_OPTS} create -d virtualbox --virtualbox-memory 2048 --virtualbox-disk-size 204800 $dtmachine
+  docker-machine ${DOCKER_MACHINE_OPTS} create -d virtualbox --virtualbox-memory 3072 --virtualbox-disk-size 204800 --engine-insecure-registry images.ecofactor.com:5000 ${dtnewopts} $dtmachine
   echo Created Docker VM $(tput setaf 4)${dtmachine}$(tput sgr0)
-  dtgo
+  dtgo $dtmachine
 }
 function dtgo() {
-  local dtmachine=${1:-default}
+  local dtmachine_old=${DOCKER_MACHINE_NAME}
+  local dtmachine=$(_dtmachine ${1})
   local dtstat=$(docker-machine ${DOCKER_MACHINE_OPTS} status $dtmachine)
-  if [ "$dtstat" != "Running" ]; then
-    echo Starting Docker VM $(tput setaf 4)${dtmachine}$(tput sgr0) ...
-    docker-machine ${DOCKER_MACHINE_OPTS} start $dtmachine
-    echo Started Docker VM $(tput setaf 4)${dtmachine}$(tput sgr0)
+  if [ "$dtstat" != "" ]; then
+    if [ "$dtstat" != "Running" ]; then
+      echo Starting Docker VM $(tput setaf 4)${dtmachine}$(tput sgr0) ...
+      docker-machine ${DOCKER_MACHINE_OPTS} start $dtmachine
+      echo Started Docker VM $(tput setaf 4)${dtmachine}$(tput sgr0)
+    fi
+    if [ "$dtmachine" != "$dtmachine_old" ]; then
+      echo Configuring environment for Docker VM $(tput setaf 4)${dtmachine}$(tput sgr0) ...
+    fi
+    dtswarmmaster=$(docker-machine ${DOCKER_MACHINE_OPTS} inspect -f "{{ .Driver.SwarmMaster }}" $dtmachine)
+    dtenvopts=
+    if [ "$dtswarmmaster" == "true" ]; then
+      dtenvopts=--swarm
+    fi
+    eval $(docker-machine ${DOCKER_MACHINE_OPTS} env $dtenvopts --shell=bash $dtmachine)
+  else
+    echo Cannot find any Docker VM called $(tput setaf 4)${dtmachine}$(tput sgr0)
   fi
-  eval $(docker-machine ${DOCKER_MACHINE_OPTS} env $dtmachine --shell=bash)
 }
 # shortcut to stop docker toolbox vm
 function dtstop() {
-  local dtmachine=${1:-default}
+  local dtmachine=$(_dtmachine ${1})
   local dtstat=$(docker-machine ${DOCKER_MACHINE_OPTS} status $dtmachine)
   if [ "$dtstat" != "Stopped" ]; then
     echo Stopping Docker VM $(tput setaf 4)${dtmachine}$(tput sgr0) ...
@@ -653,14 +684,23 @@ function dtstop() {
     echo Stopped Docker VM $(tput setaf 4)${dtmachine}$(tput sgr0)
   fi
 }
+# shortcut to upgrade docker toolbox vm memory
+function dtsetmem() {
+  local memsize=${1}
+  local dtmachine=$(_dtmachine ${2})
+  docker-machine stop $dtmachine
+  VBoxManage modifyvm $dtmachine --memory $memsize
+  docker-machine start $dtmachine
+  docker-machine regenerate-certs $dtmachine
+}
 # shortcut to ssh into docker toolbox vm
 function dtssh() {
-  local dtmachine=${1:-default}
+  local dtmachine=$(_dtmachine ${1})
   _opentab "${dtmachine}" "docker-machine ${DOCKER_MACHINE_OPTS} ssh $dtmachine"
 }
 # shortcut to show the ip address of a docker toolbox vm
 function dtip() {
-  local dtmachine=${1:-default}
+  local dtmachine=$(_dtmachine ${1})
   echo IP address of Docker VM $(tput setaf 4)${dtmachine}$(tput sgr0) is:
   docker-machine ${DOCKER_MACHINE_OPTS} ip ${dtmachine}
 }
@@ -668,11 +708,29 @@ function dtip() {
 # docker
 # shortcut to show all containers
 function dkps() {
-  docker ps -a $*
+  docker ps -a --format "table {{.Names}}\t{{.ID}}\t{{.Status}}\t{{.RunningFor}}" $* | (read -r; printf "%s\n" "$REPLY"; sort)
 }
 # shortcut to show all images
 function dkim() {
-  docker images $*
+  docker images $* | (read -r; printf "%s\n" "$REPLY"; sort)
+}
+# shortcut to list all containers and their ip addresses
+function dkips() {
+  declare -a arr=($(docker ps -a -q))
+  echo "Container ID   IP Address     Container Name"
+  echo "-------------- -------------- --------------"
+  for container_id in "${arr[@]}"; do
+    container_ip=$(docker inspect --format='{{ .NetworkSettings.IPAddress }}' ${container_id})
+    if [ "${container_ip}" == "" ]; then
+      container_ip="-"
+    fi
+    container_name=$(docker inspect --format='{{ .Name }}' ${container_id})
+    printf "%-14s %-14s %s\n" ${container_id} ${container_ip} ${container_name}
+  done
+}
+# shortcut to show all runtime statistics of containers
+function dkst() {
+  docker stats --no-stream $(docker ps --format "{{.Names}}" | sort)
 }
 # shortcut to show the ip address of a container
 function dkip() {
@@ -698,15 +756,26 @@ function dkport() {
 }
 # shortcut to show logs from a container
 function dkl() {
-  local dkcontainer=$1
-  if [ "${dkcontainer}" == "" ] || [ "${dkcontainer:0:1}" == "-" ]; then
-    dkcontainer=`docker ps -laq`
-  else
-    shift
-  fi
+  local opts=""
+  while true; do
+    if [ "${1}" == "-f" ]; then
+      opts="$opts -f"
+      shift
+    elif [ "${1}" == "-s" ]; then
+      opts="$opts --since=`date +%s`"
+      shift
+    elif [ "${1}" == "" ]; then
+      dkcontainer=`docker ps -laq`
+      break
+    else
+      dkcontainer=${1}
+      shift
+      break
+    fi
+  done
   local dkname=`docker inspect --format='{{ .Name }}' ${dkcontainer}`
   echo Logs from docker container $(tput setaf 4)${dkname}$(tput sgr0):
-  docker logs $* ${dkcontainer}
+  docker logs ${opts} ${dkcontainer}
 }
 # shortcut to open an interactive shell in a container
 function dksh() {
@@ -755,6 +824,26 @@ function dktags() {
     brew install jq
   fi
   _dktags $dkimage | sort
+}
+# shortcut to save images
+function dkims() {
+  local images_dir=${1:-/tmp/images}
+  mkdir -p ${images_dir}
+  declare -a arr=($(docker images -q -f "label=ecofactor.env=dev" | sort | uniq))
+  for image_id in "${arr[@]}"; do
+    image_repo_and_tag=$(docker inspect --format='{{with .RepoTags}}{{index . 0}}{{end}}' ${image_id})
+    rm -f ${images_dir}/${image_id}.tar
+    docker save -o ${images_dir}/${image_id}.tar ${image_repo_and_tag}
+    echo Saved image $(tput setaf 4)${image_repo_and_tag}$(tput sgr0) to $(tput setaf 4)${images_dir}/${image_id}.tar$(tput sgr0)
+  done
+}
+# shortcut to load images
+function dkiml() {
+  local images_dir=${1:-/tmp/images}
+  for image_tar in ${images_dir}/*.tar; do
+    echo Loading image from $(tput setaf 4)${image_tar}$(tput sgr0) ...
+    docker load -i $image_tar
+  done
 }
 
 # logstash
