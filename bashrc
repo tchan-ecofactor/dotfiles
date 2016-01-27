@@ -241,11 +241,13 @@ function _utcmath {
   fi
   local result=`date -v${offset}${unit} +%s`
   local result_utc=`date -v${offset}${unit} -u`
+  local result_utc_iso=`date -v${offset}${unit} -u "+%Y-%m-%dT%H:%M:%S+00:00"`
   local result_local=`date -v${offset}${unit}`
   echo ""
   echo "Time: ${offset} ${unitname} from Now"
   echo "  Local: ${result_local}"
   echo "  UTC: ${result_utc}"
+  echo "  UTC ISO: ${result_utc_iso}"
   echo "  Seconds: ${result}"
   echo "  Milliseconds: ${result}000"
   echo ""
@@ -264,6 +266,22 @@ function utcoffset {
   echo ""
   echo "UTC Offset: ${result}"
   echo ""
+}
+
+# temperature conversion
+function c2f() {
+  local c0=$1
+  f0=`expr ${c0} \* 9`
+  f0=`expr ${f0} / 500`
+  f0=`expr ${f0} + 32`
+  echo ${f0}
+}
+function f2c() {
+  local f0=$1
+  c0=`expr ${f0} - 32`
+  c0=`expr ${c0} \* 500`
+  c0=`expr ${c0} / 9`
+  echo ${c0}
 }
 
 # osx
@@ -563,6 +581,10 @@ export JAVA_VERSION=1.7
 export JAVA_HOME=$(/usr/libexec/java_home -v ${JAVA_VERSION})
 
 # python
+# Ensure we use Python 2.7
+if [ -f /Library/Frameworks/Python.framework/Versions/2.7/bin/python ]; then
+  export PATH=/Library/Frameworks/Python.framework/Versions/2.7/bin:$PATH
+fi
 # recursively remove all *.pyc files
 function rmpyc() {
   find . -name "*.pyc" -exec rm -rf {} \;
