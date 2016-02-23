@@ -209,8 +209,8 @@ function utce {
   local result=`date -r ${val}`
   echo ""
   echo "From: ${input}"
-  echo "  UTC: ${result_utc}"
   echo "  Current TZ: ${result}"
+  echo "  UTC: ${result_utc}"
   echo ""
 }
 function utcnow {
@@ -219,7 +219,7 @@ function utcnow {
   local result_local=`date`
   echo ""
   echo "Time: Now"
-  echo "  Local: ${result_local}"
+  echo "  Current TZ: ${result_local}"
   echo "  UTC: ${result_utc}"
   echo "  Seconds: ${result}"
   echo "  Milliseconds: ${result}000"
@@ -245,7 +245,7 @@ function _utcmath {
   local result_local=`date -v${offset}${unit}`
   echo ""
   echo "Time: ${offset} ${unitname} from Now"
-  echo "  Local: ${result_local}"
+  echo "  Current TZ: ${result_local}"
   echo "  UTC: ${result_utc}"
   echo "  UTC ISO: ${result_utc_iso}"
   echo "  Seconds: ${result}"
@@ -559,17 +559,18 @@ fi
 function xcuse() {
   sudo xcode-select -s /Applications/Xcode${1}.app
 }
-function xcrun() {
+function xcgo() {
   pushd /Applications/Xcode${1}.app/Contents/MacOS
   /Applications/Xcode${1}.app/Contents/MacOS/Xcode &
   popd
 }
 
 # android sdk
-export ANDROID_HOME=~/Developer/Library/Android
+export ANDROID_HOME=~/dev/android-sdk-macosx
 export PATH=${PATH}:${ANDROID_HOME}/tools:${ANDROID_HOME}/platform-tools
 function avdnew() {
-  android create avd --force --name avd001 --target android-19
+  # android create avd --force --name avd001 --target android-19
+  android create avd --force --name avd001 --abi default/armeabi-v7a --target android-23
 }
 function avdclean() {
   rm -rf ~/.android/avd/*
