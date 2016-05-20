@@ -52,13 +52,13 @@ function sgrep() {
   local sgrep_opts="${@: 1:`expr $# - 1`}"
   local sgrep_dev_opts=${MY_DEV_GREP_OPTS}
   local sgrep_pattern="${@: -1}"
-  egrep -r -n -I --color=always --exclude={.classpath,.project,*.pyc,*.class} --exclude-dir={.git,.idea,.svn,.settings,target,test-output,node_modules} ${sgrep_opts} ${sgrep_dev_opts} "${sgrep_pattern}" . 2>&1 | egrep -v "Permission denied$"
+  egrep -r -n -I --color=always --exclude={.classpath,.project,*.pyc,*.class,*.min.js,*-min.js} --exclude-dir={.git,.idea,.svn,.settings,target,test-output} ${sgrep_opts} ${sgrep_dev_opts} "${sgrep_pattern}" . 2>&1 | egrep -v "Permission denied$"
 }
 function csgrep() {
   local sgrep_opts="${@: 1:`expr $# - 1`}"
   local sgrep_dev_opts=${MY_DEV_GREP_OPTS}
   local sgrep_pattern="${@: -1}"
-  egrep -r -n -I -c --exclude={.classpath,.project,*.pyc,*.class} --exclude-dir={.git,.idea,.svn,.settings,target,test-output,node_modules} ${sgrep_opts} ${sgrep_dev_opts} "${sgrep_pattern}" . 2>&1 | egrep -v "Permission denied$" | grep -v ":0$"
+  egrep -r -n -I -c --exclude={.classpath,.project,*.pyc,*.class,*.min.js,*-min.js} --exclude-dir={.git,.idea,.svn,.settings,target,test-output} ${sgrep_opts} ${sgrep_dev_opts} "${sgrep_pattern}" . 2>&1 | egrep -v "Permission denied$" | grep -v ":0$"
 }
 # Python greps
 function pygrep() {
@@ -69,13 +69,16 @@ function pytgrep() {
 }
 # Javascript greps
 function jsgrep() {
-  sgrep --include=*.js "$@"
+  sgrep --include={*.js,*.jsx} --exclude={*.min.js,*-min.js} "$@"
 }
 function jstgrep() {
-  sgrep --include=*_test.js "$@"
+  sgrep --include={*_test.js,*.spec.js} "$@"
 }
 function jssgrep() {
-  sgrep --include=*.js --exclude=*_test.js "$@"
+  sgrep --include={*.js,*.jsx} --exclude={*_test.js,*.spec.js,*.min.js,*-min.js} "$@"
+}
+function njgrep() {
+  sgrep --include={*.js,*.jsx} --exclude={*.min.js,*-min.js} --exclude-dir=node_modules "$@"
 }
 # HTML/CSS greps
 function cssgrep() {
@@ -86,17 +89,13 @@ function htmgrep() {
 }
 # Java greps
 function jgrep() {
-  sgrep --include=*.java --include=*.jsp "$@"
+  sgrep --include={*.java,*.jsp} "$@"
 }
 function jjgrep() {
-  sgrep --include=*.java --include=*.jsp --exclude=Test*.java --exclude=*Test.java "$@"
+  sgrep --include={*.java,*.jsp} --exclude={Test*.java,*Test.java} "$@"
 }
 function jtgrep() {
-  sgrep --include=Test*.java --include=*Test.java "$@"
-}
-# Node.js greps
-function njgrep() {
-  sgrep --include=*.js "$@"
+  sgrep --include={Test*.java,*Test.java} "$@"
 }
 # XML greps
 function xmlgrep() {
@@ -1034,6 +1033,16 @@ function rscp() {
 # autoprefixer
 function autoprefix {
   autoprefixer --no-cascade -b "> 5%, last 5 Chrome versions, IE >= 10, Firefox >= 24, ios >= 6, Android >= 4.0" $*
+}
+
+# imagemagick (brew install imagemagick)
+function imginfo {
+  identify -format "filename = %f; dimensions = %wx%h pixels; density = %xx%y; color = %[depth]-bit %[colorspace]\n" $*
+}
+
+# start eclipse from command line
+function eclipse {
+  "/Applications/Eclipse.app/Contents/MacOS/eclipse" $* 2>&1 &
 }
 
 # browsers
