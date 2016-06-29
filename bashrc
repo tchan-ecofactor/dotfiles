@@ -7,6 +7,9 @@ fi
 # prompt
 export PROMPT_COMMAND='echo -ne "\033]0;${USER} ${PWD/#$HOME/~}\007"'
 
+# history
+export HISTTIMEFORMAT=`echo -ne "\033[0;33m[%m-%d-%Y %T] \033[0m"`
+
 # source
 alias srcs="source ~/.bashrc"
 
@@ -194,7 +197,78 @@ function ntpsync {
   sudo ntpupdate -u time.apple.com
 }
 
-# date
+# date/time math
+function utcd {
+  _utcdt "Local Time" $@
+}
+function utcu {
+  _utcdt "UTC Time" -u $@
+}
+function _utcdt {
+  local _opt=
+  local _year=`date +%Y`
+  local _month=`date +%m`
+  local _dayofmonth=`date +%d`
+  local _hour=`date +%H`
+  local _minute=`date +%M`
+  local _desc=${1}
+  shift
+
+  if [[ "${1}" =~ ^-[a-z]$ ]] ; then
+    _opt=${1}
+    shift
+  fi
+
+  if [[ "${1}" =~ ^2[0-9][0-9][0-9]$ ]] ; then
+    _year=${1}
+    shift
+  fi
+
+  if [[ "${1}" =~ ^[0-9]$ || "${1}" =~ ^0[0-9]$ || "${1}" =~ ^1[0-2]$ ]] ; then
+    if [[ "${1}" =~ ^[0-9]$ ]] ; then
+      _month=0${1}
+    else
+      _month=${1}
+    fi
+    _hour=00
+    _minute=00
+
+    if [[ "${2}" =~ ^[0-9]$ || "${2}" =~ ^[0-2][0-9]$ || "${2}" =~ ^3[0-1]$ ]] ; then
+      if [[ "${2}" =~ ^[0-9]$ ]] ; then
+        _dayofmonth=0${2}
+      else
+        _dayofmonth=${2}
+      fi
+
+      if [[ "${3}" =~ ^[0-9]$ || "${3}" =~ ^[0-1][0-9]$ || "${3}" =~ ^2[0-3]$ ]] ; then
+        if [[ "${3}" =~ ^[0-9]$ ]] ; then
+          _hour=0${3}
+        else
+          _hour=${3}
+        fi
+
+        if [[ "${4}" =~ ^[0-9]$ || "${4}" =~ ^[0-5][0-9]$ ]] ; then
+          if [[ "${4}" =~ ^[0-9]$ ]] ; then
+            _minute=0${4}
+          else
+            _minute=${4}
+          fi
+        fi
+      fi
+    fi
+  fi
+
+  local result=`date ${_opt} -j ${_month}${_dayofmonth}${_hour}${_minute}${_year} +%s`
+  local result_utc=`date -u -r ${result}`
+  local result_local=`date -r ${result}`
+  echo ""
+  echo "${_desc}: ${_year}-${_month}-${_dayofmonth} ${_hour}:${_minute}:00"
+  echo "  Current TZ: ${result_local}"
+  echo "  UTC: ${result_utc}"
+  echo "  Seconds: ${result}"
+  echo "  Milliseconds: ${result}000"
+  echo ""
+}
 function utce {
   local input=${1}
   if [ "${input}" == "" ] ; then
@@ -500,6 +574,11 @@ function gvdiff() {
   # git difftool -d --no-symlinks -x "/Applications/DiffMerge.app/Contents/MacOS/DiffMerge" $* 2> >(grep -v CoreText 1>&2)
   git difftool -d --no-symlinks -x "/usr/local/bin/bcomp" $*
 }
+# git whatchanged for a single commit
+function gwhat() {
+  local commitid=${1}
+  git whatchanged ${commitid}^1..${commitid}
+}
 
 # git flow
 # Shortcut to start new feature branch from current local branch using git flow
@@ -573,6 +652,31 @@ function avdnew() {
 }
 function avdclean() {
   rm -rf ~/.android/avd/*
+}
+function adevices() {
+  adb devices -l
+}
+function ainstall() {
+  local apk_file=${1}
+  local device_id=${2}
+  local not_ok=0
+  if [ "${apk_file}" == "" ]; then
+    echo "ERROR: missing apk_file"
+    not_ok=1
+  fi
+  if [ "${device_id}" == "" ]; then
+    device_id=`adb devices | head -2 | tail -1 | cut -f 1`
+  fi
+  if [ "${device_id}" == "" ]; then
+    echo "ERROR: missing device_id"
+    not_ok=1
+  fi
+
+  if [ "${not_ok}" == "1" ]; then
+    echo "Usage: ainstall <apk_file> [<device_id>]"
+  else
+    adb -s ${device_id} install ${apk_file}
+  fi
 }
 
 # java
