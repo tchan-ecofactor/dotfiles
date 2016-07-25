@@ -686,7 +686,8 @@ export JAVA_HOME=$(/usr/libexec/java_home -v ${JAVA_VERSION})
 
 # python
 # Ensure we use Python 2.7
-if [ -f /Library/Frameworks/Python.framework/Versions/2.7/bin/python ]; then
+python_version=$(python --version 2>&1)
+if [ "${python_version:7:3}" != "2.7" ] && [ -f /Library/Frameworks/Python.framework/Versions/2.7/bin/python ]; then
   export PATH=/Library/Frameworks/Python.framework/Versions/2.7/bin:$PATH
 fi
 # recursively remove all *.pyc files
