@@ -344,17 +344,11 @@ function utcoffset {
 # temperature conversion
 function c2f() {
   local c0=$1
-  f0=`expr ${c0} \* 9`
-  f0=`expr ${f0} / 500`
-  f0=`expr ${f0} + 32`
-  echo ${f0}
+  echo "scale = 2; ${c0} * 9 / 500 + 32" | bc
 }
 function f2c() {
   local f0=$1
-  c0=`expr ${f0} - 32`
-  c0=`expr ${c0} \* 500`
-  c0=`expr ${c0} / 9`
-  echo ${c0}
+  echo "(${f0} - 32) * 500 / 9" | bc
 }
 
 # osx
