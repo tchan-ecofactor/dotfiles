@@ -44,6 +44,7 @@ alias la="ls -aFGh"
 # grep
 alias grep="egrep --color=auto"
 alias rgrep="egrep -r -n -I --color=auto"
+alias hgrep="history | egrep --color=auto"
 function cgrep() {
   egrep -r -n -I -c $* | grep -v ":0$"
 }
@@ -67,18 +68,21 @@ function csgrep() {
 function pygrep() {
   sgrep --include=*.py "$@"
 }
+function pyygrep() {
+  sgrep --include=*.py --exclude={*_test.py,*_tests.py} "$@"
+}
 function pytgrep() {
-  sgrep --include=*_tests.py "$@"
+  sgrep --include={*_test.py,*_tests.py} "$@"
 }
 # Javascript greps
 function jsgrep() {
   sgrep --include={*.js,*.jsx} --exclude={*.min.js,*-min.js} "$@"
 }
 function jstgrep() {
-  sgrep --include={*_test.js,*.spec.js} "$@"
+  sgrep --include={*_test.js,*_tests.js,*.spec.js} "$@"
 }
 function jssgrep() {
-  sgrep --include={*.js,*.jsx} --exclude={*_test.js,*.spec.js,*.min.js,*-min.js} "$@"
+  sgrep --include={*.js,*.jsx} --exclude={*_test.js,*_tests.js,*.spec.js,*.min.js,*-min.js} "$@"
 }
 function njgrep() {
   sgrep --include={*.js,*.jsx} --exclude={*.min.js,*-min.js} --exclude-dir=node_modules "$@"
@@ -96,6 +100,9 @@ function jgrep() {
 }
 function jjgrep() {
   sgrep --include={*.java,*.jsp} --exclude={Test*.java,*Test.java} "$@"
+}
+function jspgrep() {
+  sgrep --include=*.jsp "$@"
 }
 function jtgrep() {
   sgrep --include={Test*.java,*Test.java} "$@"
@@ -219,7 +226,7 @@ function _utcdt {
     shift
   fi
 
-  if [[ "${1}" =~ ^2[0-9][0-9][0-9]$ ]] ; then
+  if [[ "${1}" =~ ^[12][0-9][0-9][0-9]$ ]] ; then
     _year=${1}
     shift
   fi
@@ -274,14 +281,27 @@ function utce {
   if [ "${input}" == "" ] ; then
     input=0
   fi
+  _utcepoch ${input} "" ""
+}
+function utce2k {
+  local input=${1}
+  if [ "${input}" == "" ] ; then
+    input=0
+  fi
+  _utcepoch ${input} "(Epoch 2000)" "-v+10957d"
+}
+function _utcepoch {
+  local input=${1}
+  local epochtype=${2}
+  local adjust=${3}
   local val=${input}
   if [ "${val}" -gt 9999999999 ]; then
     val=`expr ${val} / 1000`
   fi
-  local result_utc=`date -u -r ${val}`
-  local result=`date -r ${val}`
+  local result_utc=`date ${adjust} -u -r ${val}`
+  local result=`date ${adjust} -r ${val}`
   echo ""
-  echo "From: ${input}"
+  echo "From: ${input} ${epochtype}"
   echo "  Current TZ: ${result}"
   echo "  UTC: ${result_utc}"
   echo ""
@@ -332,7 +352,7 @@ function utcnh {
   _utcmath H Hours ${1}
 }
 function utcnd {
-  _utcmath M Minutes ${1}
+  _utcmath d Days ${1}
 }
 function utcoffset {
   local result=`date +%z`
@@ -357,9 +377,6 @@ export PATH=/usr/local/bin:/usr/local/sbin:$PATH
 function rmds() {
   find . -name ".DS_Store" -exec rm -rf {} \;
 }
-
-# maven
-export MAVEN_OPTS="-client -Duser.timezone=Etc/UTC -Dorg.slf4j.simpleLogger.showDateTime=true -Dorg.slf4j.simpleLogger.dateTimeFormat=HH:mm:ss -Xmx512m -XX:MaxPermSize=256m"
 
 # mysql
 if [ "$MYSQL_HOME" == "" ]; then
@@ -674,9 +691,16 @@ function ainstall() {
 }
 
 # java
-# export JAVA_VERSION=1.6
 export JAVA_VERSION=1.7
+#export JAVA_VERSION=1.8
 export JAVA_HOME=$(/usr/libexec/java_home -v ${JAVA_VERSION})
+
+# maven
+obsolete_maven_perm_gen_opt=""
+if [ "${JAVA_VERSION}" == "1.7" ]; then
+  obsolete_maven_perm_gen_opt="-XX:MaxPermSize=256m"
+fi
+export MAVEN_OPTS="-client -Duser.timezone=Etc/UTC -Dorg.slf4j.simpleLogger.showDateTime=true -Dorg.slf4j.simpleLogger.dateTimeFormat=HH:mm:ss -Xmx512m ${obsolete_maven_perm_gen_opt}"
 
 # python
 # Ensure we use Python 2.7
