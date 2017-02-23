@@ -759,7 +759,8 @@ function vdiff() {
   # diffmerge
   # /Applications/DiffMerge.app/Contents/MacOS/DiffMerge -nosplash $* 2> >(grep -v CoreText 1>&2)
   # beyond compare
-  /usr/local/bin/bcomp $* &
+  /usr/local/bin/bcomp "$@" &
+  disown -h $!
 }
 
 # docker toolbox
@@ -1151,6 +1152,15 @@ function rscp() {
   local remotefilepath=$2
   local localfilepath=$3
   scp -P ${MY_SSH_PORT} -i ${MY_SSH_RSA} ${sshuser}@${sshhost}${MY_DOMAIN}:${remotefilepath} ${localfilepath}
+}
+
+# Example: rscpr ./gc.pjb1.log pjb1 /home/efdev/ecoapps/jboss-5.1.0.GA/server/all/log/gc.log
+function rscpr() {
+  local localfilepath=$1
+  local sshhost=$2
+  local sshuser=$MY_SSH_USER
+  local remotefilepath=$3
+  scp -P ${MY_SSH_PORT} -i ${MY_SSH_RSA} ${localfilepath} ${sshuser}@${sshhost}${MY_DOMAIN}:${remotefilepath}
 }
 
 # autoprefixer
